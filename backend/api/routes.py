@@ -7,7 +7,7 @@ from models.schemas import ChatRequest, ChatResponse, Product
 from utils.query_parser import parse_query
 from utils.filters import filter_products
 from services.woocommerce import get_all_products
-from services.ai import ask_ai
+from ai import ask_ai
 
 router = APIRouter()
 
