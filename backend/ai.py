@@ -111,3 +111,94 @@ Customer Question:
 
     except KeyError:
         return "Unexpected response received from OpenRouter."
+
+
+def ask_conversation(user_message, intent="general", filters=None):
+    """
+    Generate a free-form, natural reply for non-product turns
+    (greetings, thanks, small talk, and filter-collection prompts)
+    using the LLM so the wording is dynamic and on-brand instead of
+    hardcoded. Falls back to a safe static string if the API fails.
+    """
+
+    filters = filters or {}
+
+    # Build a short summary of what we already know about the shopper
+    known = []
+    if filters.get("category"):
+        known.append(f"category: {filters['category']}")
+    if filters.get("material"):
+        known.append(f"material: {filters['material']}")
+    if filters.get("keyword"):
+        known.append(f"keyword: {filters['keyword']}")
+    if filters.get("budget"):
+        known.append(f"budget: under Rs.{filters['budget']}")
+    if filters.get("min_rating"):
+        known.append(f"min rating: {filters['min_rating']} star and above")
+
+    known_text = ", ".join(known) if known else "nothing yet"
+
+    prompt = f"""
+You are the friendly AI shopping assistant for Zyraluxe, a jewellery store.
+Your job is to keep the conversation natural, warm, and on-brand.
+
+Shopper message: "{user_message}"
+Detected intent: {intent}
+What we already know about the shopper: {known_text}
+
+Rules:
+- Reply like a real human sales assistant, 1-2 short sentences.
+- If intent is "greeting", welcome them and ask what jewellery they want (necklace, earrings, ring, jhumka, bangle, pendant, etc).
+- If intent is "thanks", thank them warmly and invite them back.
+- If the shopper just said they have no preference (e.g. "any", "doesn't matter"), acknowledge it briefly and move on.
+- If we still need a budget, ask for a price range naturally (e.g. under Rs.500, under Rs.1000) and offer "any" as an option.
+- If we still need a rating, ask for a minimum rating naturally (e.g. 4 star and above) and offer "any" as an option.
+- Do NOT recommend specific products here. Do NOT use markdown. Keep it short.
+"""
+
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are a professional jewellery shopping assistant for Zyraluxe.",
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ],
+        "temperature": 0.7,
+        "max_tokens": 120,
+    }
+
+    try:
+        response = requests.post(
+            API_URL,
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        return data["choices"][0]["message"]["content"].strip()
+
+    except Exception:
+        # Safe static fallbacks so the bot never breaks if the LLM is down
+        if intent == "greeting":
+            return "Hello! Welcome to Zyraluxe. What kind of jewellery are you looking for today?"
+        if intent == "thanks":
+            return "You're welcome. I'm here whenever you want help choosing jewellery."
+        if filters.get("budget") is None:
+            return "Sure. What price range should I keep in mind? For example: under Rs.500, under Rs.1000, or say any."
+        if filters.get("min_rating") is None:
+            return "Got it. Do you want a minimum rating? For example: 4 star and above, 5 star, or say any."
+        return "I can help you find jewellery step by step. Tell me the product or style you want, like necklace, earrings, jhumka, ring, or pearl set."

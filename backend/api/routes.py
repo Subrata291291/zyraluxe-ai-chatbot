@@ -7,7 +7,7 @@ from models.schemas import ChatRequest, ChatResponse, Product
 from utils.query_parser import parse_query
 from utils.filters import filter_products
 from services.woocommerce import get_all_products
-from ai import ask_ai
+from ai import ask_ai, ask_conversation
 
 router = APIRouter()
 
@@ -39,17 +39,10 @@ class DescriptionTextParser(HTMLParser):
             self.parts.append(data)
 
 
-def conversation_reply(query):
+def conversation_reply(message, query):
 
     intent = query.get("intent")
-
-    if intent == "greeting":
-        return "Hello! Welcome to Zyraluxe. What kind of jewellery are you looking for today?"
-
-    if intent == "thanks":
-        return "You're welcome. I am here whenever you want help choosing jewellery."
-
-    return "I can help you find jewellery step by step. Tell me the product or style you want, like necklace, earrings, jhumka, ring, or pearl set."
+    return ask_conversation(message, intent or "general", query)
 
 
 def clean_description(description):
@@ -85,11 +78,12 @@ def should_collect_filters(query):
 
 def next_filter_question(filters):
 
+    # Dynamic, AI-generated follow-up based on what's still missing.
     if filters.get("budget") is None and not filters.get("skip_budget"):
-        return "Sure. What price range should I keep in mind? For example: under Rs.500, under Rs.1000, or say any."
+        return ask_conversation("What price range should I keep in mind?", "filter_budget", filters)
 
     if filters.get("min_rating") is None and not filters.get("skip_rating"):
-        return "Got it. Do you want a minimum rating? For example: 4 star and above, 5 star, or say any."
+        return ask_conversation("Do you want a minimum rating?", "filter_rating", filters)
 
     return None
 
@@ -188,7 +182,7 @@ def chat(request: ChatRequest):
                 filters["budget"] = answer_query["budget"]
             else:
                 return build_context_response(
-                    "Please share a price range, like under Rs.500, or say any.",
+                    ask_conversation(request.message, "filter_budget", filters),
                     filters,
                     context
                 )
@@ -200,7 +194,7 @@ def chat(request: ChatRequest):
                 filters["min_rating"] = answer_query["min_rating"]
             else:
                 return build_context_response(
-                    "Please share a minimum rating, like 4 star and above, or say any.",
+                    ask_conversation(request.message, "filter_rating", filters),
                     filters,
                     context
                 )
@@ -227,7 +221,7 @@ def chat(request: ChatRequest):
 
     if query.get("intent") != "shopping":
         return ChatResponse(
-            reply=conversation_reply(query),
+            reply=conversation_reply(request.message, query),
             total_products=0,
             query=query,
             products=[],
