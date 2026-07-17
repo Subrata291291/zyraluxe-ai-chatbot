@@ -7,6 +7,9 @@ const chatClose = document.getElementById("chatClose");
 
 const suggestions = document.querySelectorAll(".suggestion");
 let chatContext = {};
+
+// Live backend endpoint (Render free tier)
+const API_URL = "https://zyraluxe-ai-chatbot.onrender.com/chat";
 // ================================
 // Widget Open / Close
 // ================================
@@ -300,7 +303,7 @@ async function sendMessage(customText=null){
 
         const response = await fetch(
 
-            "https://api.zyraluxe.in/chat",
+            API_URL,
 
             {
 
