@@ -8,8 +8,35 @@ from utils.query_parser import parse_query
 from utils.filters import filter_products
 from services.woocommerce import get_all_products
 from ai import ask_ai, ask_conversation
+from services.rag import get_knowledge_context
 
 router = APIRouter()
+
+# Keywords that signal a store-policy / FAQ question rather than a product hunt.
+_KB_TRIGGER_TERMS = [
+    "ship", "shipping", "deliver", "delivery", "cod", "cash on delivery",
+    "return", "returns", "refund", "exchange", "replace", "warranty",
+    "size", "sizing", "resize", "ring size", "measurement",
+    "care", "clean", "polish", "tarnish", "storage",
+    "custom", "engrav", "gift", "gifting", "gift wrap",
+    "payment", "pay", "upi", "card", "track", "tracking",
+    "certif", "hallmark", "about", "who are you", "company",
+    "guide", "gold", "diamond", "lab grown", "lab-grown",
+]
+
+
+def is_knowledge_query(message, query):
+    """True when the message is likely a policy/FAQ question we can answer
+    from the knowledge base, and not a focused product request."""
+    if not get_knowledge_context(message):
+        return False
+    text = message.strip().lower()
+    if any(term in text for term in _KB_TRIGGER_TERMS):
+        # Only treat as KB if there's no clear product category/material intent,
+        # so "show me gold necklaces" still does a product search.
+        if not query.get("category") and not query.get("material"):
+            return True
+    return False
 
 
 class DescriptionTextParser(HTMLParser):
@@ -220,6 +247,17 @@ def chat(request: ChatRequest):
         return run_product_search(request.message, filters)
 
     if query.get("intent") != "shopping":
+        return ChatResponse(
+            reply=conversation_reply(request.message, query),
+            total_products=0,
+            query=query,
+            products=[],
+            context={}
+        )
+
+    # Knowledge-base first: policy/FAQ questions get grounded answers from
+    # the knowledge base instead of being run as a product search.
+    if is_knowledge_query(request.message, query):
         return ChatResponse(
             reply=conversation_reply(request.message, query),
             total_products=0,

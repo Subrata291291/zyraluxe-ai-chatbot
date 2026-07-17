@@ -1,5 +1,6 @@
 ﻿import requests
 from core.config import OPENROUTER_API_KEY
+from services.rag import get_knowledge_context
 
 MODEL = "meta-llama/llama-3.1-8b-instruct"
 
@@ -116,12 +117,16 @@ Customer Question:
 def ask_conversation(user_message, intent="general", filters=None):
     """
     Generate a free-form, natural reply for non-product turns
-    (greetings, thanks, small talk, and filter-collection prompts)
-    using the LLM so the wording is dynamic and on-brand instead of
-    hardcoded. Falls back to a safe static string if the API fails.
+    (greetings, thanks, small talk, policy/FAQ questions, and
+    filter-collection prompts) using the LLM so the wording is dynamic
+    and on-brand instead of hardcoded. Falls back to a safe static
+    string if the API fails.
     """
 
     filters = filters or {}
+
+    # Pull relevant knowledge-base snippets (Level 1 RAG)
+    kb_context = get_knowledge_context(user_message)
 
     # Build a short summary of what we already know about the shopper
     known = []
@@ -138,6 +143,8 @@ def ask_conversation(user_message, intent="general", filters=None):
 
     known_text = ", ".join(known) if known else "nothing yet"
 
+    kb_block = kb_context if kb_context else "(no relevant knowledge found)"
+
     prompt = f"""
 You are the friendly AI shopping assistant for Zyraluxe, a jewellery store.
 Your job is to keep the conversation natural, warm, and on-brand.
@@ -146,7 +153,7 @@ Shopper message: "{user_message}"
 Detected intent: {intent}
 What we already know about the shopper: {known_text}
 
-Rules:
+ Rules:
 - Reply like a real human sales assistant, 1-2 short sentences.
 - If intent is "greeting", welcome them and ask what jewellery they want (necklace, earrings, ring, jhumka, bangle, pendant, etc).
 - If intent is "thanks", thank them warmly and invite them back.
@@ -154,7 +161,13 @@ Rules:
 - If we still need a budget, ask for a price range naturally (e.g. under Rs.500, under Rs.1000) and offer "any" as an option.
 - If we still need a rating, ask for a minimum rating naturally (e.g. 4 star and above) and offer "any" as an option.
 - Do NOT recommend specific products here. Do NOT use markdown. Keep it short.
-"""
+
+KNOWLEDGE BASE (use this to answer store policy, shipping, returns, sizing,
+care, materials, and FAQ questions accurately):
+{kb_block}
+- If the question is about store policy/shipping/returns/sizing/materials/care/FAQ and the KNOWLEDGE BASE above has relevant info, answer ONLY from it, concisely and accurately. Do not invent details.
+- If the KNOWLEDGE BASE has no relevant info, respond naturally and offer to connect them with support, without guessing facts.
+ """
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -192,7 +205,11 @@ Rules:
         return data["choices"][0]["message"]["content"].strip()
 
     except Exception:
-        # Safe static fallbacks so the bot never breaks if the LLM is down
+        # Safe static fallbacks so the bot never breaks if the LLM is down.
+        # If we have knowledge-base content, answer straight from it.
+        if kb_context:
+            return kb_context
+
         if intent == "greeting":
             return "Hello! Welcome to Zyraluxe. What kind of jewellery are you looking for today?"
         if intent == "thanks":
