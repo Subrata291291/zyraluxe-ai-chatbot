@@ -51,46 +51,72 @@
     align-items:center;
     gap:12px;
     flex:0 0 auto;
-    background:linear-gradient(135deg,#111 0%,#1e1e1e 72%,#2b2414 100%);
+    background:linear-gradient(135deg,#0e0e10 0%,#1c1a16 55%,#2b2414 100%);
     color:#fff;
-    padding:16px 14px 16px 18px;
-    font-size:18px;
-    font-weight:800;
-    letter-spacing:.2px;
-    border-bottom:1px solid rgba(244,216,117,.24);
+    padding:14px 14px 14px 16px;
+    border-bottom:1px solid rgba(244,216,117,.22);
+    box-shadow:0 6px 22px rgba(0,0,0,.28);
 }
 
-.chat-container .header::before{
-    content:"ZL";
+.chat-container .header-avatar{
     display:grid;
     place-items:center;
-    width:36px;
-    height:36px;
-    flex:0 0 36px;
-    border:1px solid rgba(244,216,117,.85);
+    width:42px;
+    height:42px;
+    flex:0 0 42px;
     border-radius:50%;
-    color:var(--zl-gold-soft);
-    font-size:12px;
-    font-weight:900;
-    box-shadow:0 0 0 4px rgba(216,173,47,.08), inset 0 0 18px rgba(216,173,47,.18);
+    background:radial-gradient(circle at 30% 25%,rgba(216,173,47,.35),rgba(216,173,47,.08) 70%);
+    border:1px solid rgba(244,216,117,.85);
+    box-shadow:0 0 0 4px rgba(216,173,47,.08), inset 0 0 16px rgba(216,173,47,.18);
 }
 
-.chat-container .header::after{
-    content:"";
-    position:absolute;
-    right:58px;
-    bottom:0;
-    width:94px;
-    height:2px;
-    background:linear-gradient(90deg,transparent,var(--zl-gold),transparent);
+.chat-container .header-text{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    flex:1;
+    min-width:0;
 }
 
 .chat-container .header-title{
-    flex:1;
-    min-width:0;
+    font-size:15px;
+    font-weight:800;
+    letter-spacing:.6px;
+    line-height:1.2;
+    text-transform:uppercase;
+    background:linear-gradient(90deg,#fff,var(--zl-gold-soft));
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
     overflow:hidden;
     text-overflow:ellipsis;
     white-space:nowrap;
+}
+
+.chat-container .header-status{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.4px;
+    color:rgba(255,255,255,.7);
+    text-transform:uppercase;
+}
+
+.chat-container .status-dot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#36d27a;
+    box-shadow:0 0 0 0 rgba(54,210,122,.7);
+    animation:zlpulse 1.8s infinite;
+}
+
+@keyframes zlpulse{
+    0%{ box-shadow:0 0 0 0 rgba(54,210,122,.6); }
+    70%{ box-shadow:0 0 0 7px rgba(54,210,122,0); }
+    100%{ box-shadow:0 0 0 0 rgba(54,210,122,0); }
 }
 
 .chat-container .chat-close{
