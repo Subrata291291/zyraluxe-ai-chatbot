@@ -1,4 +1,6 @@
-﻿from fastapi import APIRouter
+﻿import os
+
+from fastapi import APIRouter
 from html import unescape
 from html.parser import HTMLParser
 
@@ -9,8 +11,20 @@ from utils.filters import filter_products
 from services.woocommerce import get_all_products
 from ai import ask_ai, ask_conversation
 from services.rag import get_knowledge_context
+from services.catalog_sync import sync_catalog
 
 router = APIRouter()
+
+
+@router.post("/sync-catalog")
+def sync_catalog_endpoint(token: str = ""):
+    # Light guard so the endpoint isn't abused publicly.
+    expected = os.getenv("SYNC_TOKEN", "")
+    if expected and token != expected:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Forbidden")
+    count = sync_catalog()
+    return {"synced": count}
 
 # Keywords that signal a store-policy / FAQ question rather than a product hunt.
 _KB_TRIGGER_TERMS = [

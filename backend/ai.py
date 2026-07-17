@@ -162,11 +162,12 @@ What we already know about the shopper: {known_text}
 - If we still need a rating, ask for a minimum rating naturally (e.g. 4 star and above) and offer "any" as an option.
 - Do NOT recommend specific products here. Do NOT use markdown. Keep it short.
 
-KNOWLEDGE BASE (use this to answer store policy, shipping, returns, sizing,
-care, materials, and FAQ questions accurately):
+ KNOWLEDGE BASE (use this to answer store policy, shipping, returns, sizing,
+ care, materials, and FAQ questions accurately):
 {kb_block}
-- If the question is about store policy/shipping/returns/sizing/materials/care/FAQ and the KNOWLEDGE BASE above has relevant info, answer ONLY from it, concisely and accurately. Do not invent details.
-- If the KNOWLEDGE BASE has no relevant info, respond naturally and offer to connect them with support, without guessing facts.
+- If the question is about store policy/shipping/returns/materials/care/FAQ and the KNOWLEDGE BASE above has relevant info, answer ONLY from it, concisely and accurately. Quote the real numbers (e.g. return window, free-shipping threshold, prices) exactly as written.
+- Do NOT invent details, prices, policies, or products that are not in the KNOWLEDGE BASE or the product list. If the answer is not in the provided context, say you are not sure and suggest emailing zyraluxeofficial@gmail.com.
+- Keep replies short (1-3 sentences) and friendly. Do NOT use markdown.
  """
 
     headers = {

@@ -33,6 +33,16 @@ app.add_middleware(
 app.include_router(router)
 
 
+@app.on_event("startup")
+def _refresh_catalog():
+    # Refresh the knowledge base with the live product catalogue on boot.
+    try:
+        from services.catalog_sync import sync_catalog
+        sync_catalog()
+    except Exception:
+        pass
+
+
 @app.get("/")
 def root():
     return {"status": "ok", "service": "Zyraluxe AI Chatbot"}
