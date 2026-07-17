@@ -22,6 +22,7 @@
     z-index:999999;
     width:min(410px, calc(100vw - 32px));
     max-height:calc(100vh - 124px);
+    max-height:calc(100dvh - 124px);
     display:flex;
     flex-direction:column;
     background:linear-gradient(180deg,#fffdf8 0%,#f7f2e8 100%);
@@ -460,32 +461,117 @@
 @media (max-width:520px){
     .chat-container{
         right:12px;
-        bottom:88px;
-        width:calc(100vw - 24px);
-        max-height:calc(100vh - 108px);
+        bottom:84px;
+        left:12px;
+        width:auto;
+        max-height:calc(100vh - 104px);
+        max-height:calc(100dvh - 104px);
         border-radius:16px;
     }
 
     .chat-launcher{
-        right:18px;
-        bottom:18px;
-        width:58px;
-        height:58px;
+        right:16px;
+        bottom:16px;
+        width:56px;
+        height:56px;
     }
 
     .chat-container .messages{
-        min-height:280px;
-        height:calc(100vh - 248px);
-        padding-inline:14px;
+        min-height:260px;
+        height:calc(100vh - 240px);
+        height:calc(100dvh - 240px);
+        padding:18px 14px 90px;
     }
 
     .chat-container .header{
-        padding-inline:16px 12px;
+        padding:14px 12px 14px 16px;
         font-size:17px;
     }
 
     .chat-container .rating-row{
         flex-wrap:wrap;
+    }
+
+    /* Keep the text field usable on narrow phones */
+    .chat-container input{
+        padding:14px;
+        font-size:16px; /* >=16px prevents iOS zoom-on-focus */
+    }
+
+    .chat-container #send{
+        width:84px;
+        flex:0 0 84px;
+        font-size:13px;
+    }
+
+    .chat-container .product-card img{
+        height:160px;
+    }
+
+    .chat-container .price{
+        font-size:24px;
+    }
+
+    .chat-container .product-info h3{
+        font-size:16px;
+    }
+}
+
+@media (max-width:380px){
+    .chat-container{
+        right:8px;
+        left:8px;
+        bottom:78px;
+        border-radius:14px;
+    }
+
+    .chat-launcher{
+        right:12px;
+        bottom:12px;
+        width:52px;
+        height:52px;
+    }
+
+    .chat-container .messages{
+        padding:14px 10px 84px;
+        gap:14px;
+    }
+
+    .chat-container .header{
+        font-size:16px;
+    }
+
+    .chat-container .user-message,
+    .chat-container .ai-message{
+        max-width:90%;
+    }
+
+    .chat-container .product-card img{
+        height:140px;
+    }
+
+    .chat-container #send{
+        width:74px;
+        flex:0 0 74px;
+    }
+}
+
+/* Short landscape phones: cap height so the panel never exceeds the screen */
+@media (max-height:520px){
+    .chat-container{
+        top:12px;
+        bottom:12px;
+        right:12px;
+        left:auto;
+        max-height:none;
+        height:calc(100vh - 24px);
+        height:calc(100dvh - 24px);
+    }
+
+    .chat-container .messages{
+        height:auto;
+        min-height:0;
+        flex:1 1 auto;
     }
 }
 
