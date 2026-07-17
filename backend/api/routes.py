@@ -2,12 +2,12 @@
 from html import unescape
 from html.parser import HTMLParser
 
-from backend.services.ranking import rank_products
-from backend.models.schemas import ChatRequest, ChatResponse, Product
-from backend.utils.query_parser import parse_query
-from backend.utils.filters import filter_products
-from backend.services.woocommerce import get_all_products
-from backend.services.ai import ask_ai
+from services.ranking import rank_products
+from models.schemas import ChatRequest, ChatResponse, Product
+from utils.query_parser import parse_query
+from utils.filters import filter_products
+from services.woocommerce import get_all_products
+from services.ai import ask_ai
 
 router = APIRouter()
 

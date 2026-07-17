@@ -1,5 +1,5 @@
 import requests
-from backend.core.config import STORE_URL, WC_KEY, WC_SECRET
+from core.config import STORE_URL, WC_KEY, WC_SECRET
 
 def get_all_products():
 

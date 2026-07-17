@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: zyraluxe-ai-chatbot
+    runtime: python
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn run:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: STORE_URL
+        sync: false
+      - key: WC_KEY
+        sync: false
+      - key: WC_SECRET
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false

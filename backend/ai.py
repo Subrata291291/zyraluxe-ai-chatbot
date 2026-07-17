@@ -1,5 +1,5 @@
 ﻿import requests
-from backend.core.config import OPENROUTER_API_KEY
+from core.config import OPENROUTER_API_KEY
 
 MODEL = "meta-llama/llama-3.1-8b-instruct"
 
