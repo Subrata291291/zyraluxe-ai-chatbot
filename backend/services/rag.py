@@ -2,11 +2,25 @@ import os
 import re
 from collections import Counter
 
-# Knowledge base lives in the "knowledge" folder at the project root.
-_KNOWLEDGE_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "knowledge",
-)
+# Locate the "knowledge" folder by walking up from this file, so it works
+# regardless of the current working directory or deployment layout.
+def _find_knowledge_dir():
+    here = os.path.abspath(os.path.dirname(__file__))
+    # Check this dir and every parent up to the filesystem root.
+    current = here
+    for _ in range(10):
+        candidate = os.path.join(current, "knowledge")
+        if os.path.isdir(candidate):
+            return candidate
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+    # Fallback: assume knowledge sits next to the backend folder.
+    return os.path.join(os.path.dirname(os.path.dirname(here)), "knowledge")
+
+
+_KNOWLEDGE_DIR = _find_knowledge_dir()
 
 # Stopwords ignored during keyword scoring (kept small + English/Hindi-friendly)
 _STOPWORDS = set("""
