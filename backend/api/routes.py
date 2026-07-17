@@ -36,6 +36,9 @@ _KB_TRIGGER_TERMS = [
     "payment", "pay", "upi", "card", "track", "tracking",
     "certif", "hallmark", "about", "who are you", "company",
     "guide", "gold", "diamond", "lab grown", "lab-grown",
+    "sell", "selling", "collection", "catalogue", "catalog",
+    "what do you have", "what do you offer", "tell me about",
+    "jewellery do you", "types of",
 ]
 
 
@@ -49,6 +52,14 @@ def is_knowledge_query(message, query):
         # Sizing questions (ring size, resize, measurement) are always KB,
         # even though "ring" is also a product category.
         if any(s in text for s in ("size", "sizing", "resize", "measurement", "measure")):
+            return True
+        # Informational material questions ("are your products real gold?",
+        # "do you sell silver?") are KB, even if a material was detected.
+        if any(p in text for p in (
+            "real", "genuine", "solid", "certif", "authentic",
+            "do you sell", "do you make", "made of", "what kind of",
+            "what type of", "what are", "type of jewellery",
+        )):
             return True
         # Otherwise treat as KB only when there's no clear product
         # category/material intent, so "show me gold necklaces" still searches.
