@@ -1,0 +1,43 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zyraluxe AI Concierge</title>
+    <link rel="stylesheet" href="widget.css">
+</head>
+<body>
+
+<div class="chat-container" id="chatContainer" aria-hidden="true">
+    <div class="header">
+        <span class="header-title">Zyraluxe AI Concierge</span>
+        <button class="chat-close" id="chatClose" type="button" aria-label="Minimize chat">&times;</button>
+    </div>
+
+    <div id="messages" class="messages">
+        <div class="ai-message">
+            Welcome to Zyraluxe Luxe Store<br><br>
+            How can I help you today?
+        </div>
+    </div>
+
+    <div class="input-area">
+        <input
+            id="message"
+            placeholder="Ask me anything..."
+        >
+
+        <button id="send">
+            Send
+        </button>
+    </div>
+</div>
+
+<button class="chat-launcher" id="chatLauncher" type="button" aria-label="Open Zyraluxe chat">
+    <span class="launcher-bubble"></span>
+</button>
+
+<script src="widget.js"></script>
+
+</body>
+</html>
