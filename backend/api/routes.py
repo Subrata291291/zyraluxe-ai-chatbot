@@ -32,8 +32,12 @@ def is_knowledge_query(message, query):
         return False
     text = message.strip().lower()
     if any(term in text for term in _KB_TRIGGER_TERMS):
-        # Only treat as KB if there's no clear product category/material intent,
-        # so "show me gold necklaces" still does a product search.
+        # Sizing questions (ring size, resize, measurement) are always KB,
+        # even though "ring" is also a product category.
+        if any(s in text for s in ("size", "sizing", "resize", "measurement", "measure")):
+            return True
+        # Otherwise treat as KB only when there's no clear product
+        # category/material intent, so "show me gold necklaces" still searches.
         if not query.get("category") and not query.get("material"):
             return True
     return False
