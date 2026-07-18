@@ -69,6 +69,36 @@ def _load_chunks():
     return chunks
 
 
+# Topic hints: a query term that strongly implies a particular knowledge file.
+# Used to boost the right document so policy questions don't retrieve the wrong one.
+_TOPIC_BOOSTS = {
+    "shipping": "Shipping",
+    "delivery": "Shipping",
+    "deliver": "Shipping",
+    "ship": "Shipping",
+    "track": "Shipping",
+    "tracking": "Shipping",
+    "return": "Returns",
+    "refund": "Returns",
+    "exchange": "Returns",
+    "replace": "Returns",
+    "warranty": "Returns",
+    "cod": "Faq",
+    "payment": "Faq",
+    "pay": "Faq",
+    "upi": "Faq",
+    "price": "Faq",
+    "international": "Shipping",
+    "real gold": "About",
+    "solid gold": "About",
+    "material": "About",
+    "care": "Care",
+    "clean": "Care",
+    "tarnish": "Care",
+    "polish": "Care",
+}
+
+
 def search_knowledge(query, top_k=3, min_score=1):
     """
     Keyword-overlap search over the knowledge base.
@@ -82,11 +112,22 @@ def search_knowledge(query, top_k=3, min_score=1):
     if not q_tokens:
         return []
 
+    # Detect topic from the raw query to bias toward the right document.
+    q_lower = query.lower()
+    topic_boost = 0
+    for term, source in _TOPIC_BOOSTS.items():
+        if term in q_lower:
+            topic_boost = source
+            break
+
     scored = []
     for chunk in chunks:
         c_tokens = Counter(_tokenize(chunk["text"]))
         # Score = number of query tokens found in the chunk (weighted)
         score = sum(count for tok, count in q_tokens.items() if tok in c_tokens)
+        # Strong boost when this chunk's source matches the detected topic.
+        if topic_boost and chunk["source"] == topic_boost:
+            score += 5
         if score >= min_score:
             scored.append((score, chunk))
 
@@ -98,7 +139,7 @@ def search_knowledge(query, top_k=3, min_score=1):
 
 def get_knowledge_context(query, max_chars=1400):
     """Return a formatted knowledge block to inject into the AI prompt, or ''."""
-    hits = search_knowledge(query, top_k=3)
+    hits = search_knowledge(query, top_k=4)
     if not hits:
         return ""
 
