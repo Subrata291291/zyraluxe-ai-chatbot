@@ -35,10 +35,15 @@ app.include_router(router)
 
 @app.on_event("startup")
 def _refresh_catalog():
-    # Refresh the knowledge base with the live product catalogue on boot.
+    # Warm up the product catalogue cache and refresh the knowledge base on boot.
     try:
         from services.catalog_sync import sync_catalog
         sync_catalog()
+    except Exception:
+        pass
+    try:
+        from services.woocommerce import refresh_catalog_cache
+        refresh_catalog_cache()
     except Exception:
         pass
 

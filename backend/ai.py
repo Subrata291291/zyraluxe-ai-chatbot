@@ -1,10 +1,49 @@
-﻿import requests
-from core.config import OPENROUTER_API_KEY
+﻿import time
+
+import requests
+from core.config import OPENROUTER_API_KEY, AI_MODEL
 from services.rag import get_knowledge_context
 
-MODEL = "meta-llama/llama-3.1-8b-instruct"
+MODEL = AI_MODEL
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+# Small retry budget for transient network errors / free-tier rate limits.
+_MAX_RETRIES = 2
+_RETRY_BACKOFF = 1.0
+
+
+def _missing_key():
+    return (
+        "I'm not configured yet — the store's AI key is missing. "
+        "Please contact the store owner to finish the setup."
+    )
+
+
+def _post(payload, timeout):
+    """POST to OpenRouter with a couple of retries on transient failures."""
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    last_err = None
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            response = requests.post(
+                API_URL, headers=headers, json=payload, timeout=timeout
+            )
+            # Retry on 429 (rate limit) / 5xx with a short backoff.
+            if response.status_code in (429, 500, 502, 503, 504) and attempt < _MAX_RETRIES:
+                time.sleep(_RETRY_BACKOFF * (attempt + 1))
+                continue
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            last_err = e
+            if attempt < _MAX_RETRIES:
+                time.sleep(_RETRY_BACKOFF * (attempt + 1))
+                continue
+    raise last_err
 
 
 def ask_ai(user_question, products, query=None):
@@ -18,8 +57,11 @@ def ask_ai(user_question, products, query=None):
     if not products:
         return (
             "Sorry, I couldn't find any matching products in our store. "
-            "Could you try a different keyword?"
+            "Could you try a different keyword or tell me the style you like?"
         )
+
+    if not OPENROUTER_API_KEY:
+        return _missing_key()
 
     # Prepare product information
     product_text = ""
@@ -37,6 +79,7 @@ Category: {categories}
 Rating: {product.get('average_rating', '0')} out of 5
 Review count: {product.get('rating_count', 0)}
 Total sales: {product.get('total_sales', 0)}
+Product link: {product.get('permalink', '')}
 ----------------------------------------
 """
 
@@ -49,7 +92,8 @@ Total sales: {product.get('total_sales', 0)}
         sort_instruction = "The products are already sorted by rating. Recommend them in this exact order."
 
     prompt =  f"""
-You are the AI shopping assistant for our jewellery store.
+You are the AI shopping assistant for our jewellery store. You are knowledgeable,
+warm, and help customers find the perfect piece.
 
 IMPORTANT RULES:
 
@@ -57,7 +101,8 @@ IMPORTANT RULES:
 - Do NOT create, guess, or invent products.
 - If a product is not listed, never mention it.
 - Mention only the product name, price, stock, and rating exactly as provided.
-- Keep the response short and readable.
+- When you recommend a product, include its Product link so the customer can open it.
+- Keep the response short, readable, and genuinely helpful (1-3 sentences).
 - Do not use markdown bold formatting.
 - If there are no matching products, say:
   "Sorry, I couldn't find a matching product."
@@ -94,21 +139,11 @@ Customer Question:
     }
 
     try:
-        response = requests.post(
-            API_URL,
-            headers=headers,
-            json=payload,
-            timeout=60
-        )
-
-        response.raise_for_status()
-
-        data = response.json()
-
+        data = _post(payload, timeout=60)
         return data["choices"][0]["message"]["content"]
 
     except requests.exceptions.RequestException as e:
-        return f"API Error: {e}"
+        return f"Sorry, I'm having trouble reaching the AI service right now. Please try again in a moment. ({e})"
 
     except KeyError:
         return "Unexpected response received from OpenRouter."
@@ -149,7 +184,7 @@ def ask_conversation(user_message, intent="general", filters=None):
 You are the friendly AI shopping assistant for Zyraluxe, a jewellery store.
 Your job is to keep the conversation natural, warm, and on-brand.
 
-Shopper message: "{user_message}"
+ Shopper message: "{user_message}"
 Detected intent: {intent}
 What we already know about the shopper: {known_text}
 
@@ -170,6 +205,9 @@ What we already know about the shopper: {known_text}
 - Do NOT invent details, prices, policies, or products that are not in the KNOWLEDGE BASE or the product list. If the answer is not in the provided context, say you are not sure and suggest emailing zyraluxeofficial@gmail.com.
 - Keep replies short (1-3 sentences) and friendly. Do NOT use markdown.
  """
+
+    if not OPENROUTER_API_KEY:
+        return kb_context or _missing_key()
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -193,24 +231,14 @@ What we already know about the shopper: {known_text}
     }
 
     try:
-        response = requests.post(
-            API_URL,
-            headers=headers,
-            json=payload,
-            timeout=30
-        )
-
-        response.raise_for_status()
-
-        data = response.json()
-
+        data = _post(payload, timeout=30)
         return data["choices"][0]["message"]["content"].strip()
 
     except Exception:
         # Safe static fallbacks so the bot never breaks if the LLM is down.
         # If we have knowledge-base content, answer straight from it.
         if kb_context:
-            return kb_context
+            return kb_context.strip().split("\n\n")[0][:400]
 
         if intent == "greeting":
             return "Hello! Welcome to Zyraluxe. What kind of jewellery are you looking for today?"

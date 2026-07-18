@@ -8,8 +8,9 @@ const chatClose = document.getElementById("chatClose");
 const suggestions = document.querySelectorAll(".suggestion");
 let chatContext = {};
 
-// Live backend endpoint (Render free tier)
-const API_URL = "https://zyraluxe-ai-chatbot.onrender.com/chat";
+// Live backend endpoint. Override by setting window.ZYRALUXE_API before this
+// script loads (e.g. in index.html) so you don't have to edit widget.js to redeploy.
+const API_URL = (window.ZYRALUXE_API || "https://zyraluxe-ai-chatbot.onrender.com") + "/chat";
 // ================================
 // Widget Open / Close
 // ================================
