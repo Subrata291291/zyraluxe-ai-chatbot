@@ -33,6 +33,23 @@ def score_product(product, query):
             for c in product["categories"]
         )
 
+    text = (name + " " + description + " " + category)
+
+    from utils.filters import _matches_category
+
+    # Category (strongest signal). Reward a real category match heavily and
+    # penalize products that belong to a different category so the bot never
+    # shows necklaces when the shopper asked for earrings.
+    if query.get("category"):
+        if _matches_category(text, query["category"]):
+            score += 10
+            if query["category"] in category:
+                score += 3
+            if query["category"] in name:
+                score += 2
+        else:
+            score -= 12
+
     # Material
     if query.get("material"):
 
@@ -42,14 +59,8 @@ def score_product(product, query):
         if query["material"] in description:
             score += 4
 
-    # Category
-    if query.get("category"):
-
-        if query["category"] in category:
-            score += 5
-
-        if query["category"] in name:
-            score += 4
+        if query["material"] in category:
+            score += 2
 
     # Budget
 

@@ -1,29 +1,44 @@
 ﻿import re
 
-CATEGORIES = [
-    "american diamond",
-    "necklaces",
-    "necklace",
-    "earrings",
-    "earring",
-    "bracelet",
-    "pendant",
-    "jhumka",
-    "bangle",
-    "choker",
-    "rings",
-    "ring",
-    "chain"
-]
+# Real store categories (from zyraluxe.in product categories). Each entry is
+# mapped to a canonical singular form used downstream for filtering/ranking.
+CATEGORY_ALIASES = {
+    "earring": ["earring", "earrings", "jhumka", "jhumkas", "jhumki", "jhumkis",
+                "jhumka earring", "chandbali", "chandbalis", "dangler", "danglers",
+                "stud", "studs", "hoop", "hoops", "drop earring"],
+    "pendant": ["pendant", "pendants", "pendent", "pendents", "pendant necklace",
+                "locket", "lockets"],
+    "necklace": ["necklace", "necklaces", "sitahar", "sitahars", "chain", "chains",
+                 "neck piece", "necklace set", "neck set"],
+    "choker": ["choker", "chokers", "chokker", "chokkers", "collar necklace"],
+    "oxidised jhumka": ["oxidised jhumka", "oxidized jhumka", "oxidised jhumka earring",
+                         "oxide jhumka"],
+    "anklet": ["anklet", "anklets", "payal", "payal set", "ankle bracelet"],
+    "bangle": ["bangle", "bangles", "kada", "kadas", "bangle set"],
+    "bracelet": ["bracelet", "bracelets", "wrist band", "wristband"],
+    "combo": ["combo", "combos", "combo pack", "combo set", "pack of", "set of",
+               "pair of", "4 pair", "4 pairs", "jewellery set", "jewelry set",
+               "jewellery sets", "jewelry sets"],
+}
 
+# Materials as the store describes them. "american diamond" is an accent type,
+# not a precious stone, so keep it under imitation finishes.
 MATERIALS = [
     "american diamond",
+    "austrian diamond",
     "oxidized",
+    "oxidised",
     "diamond",
     "silver",
+    "german silver",
     "kundan",
     "pearl",
-    "gold"
+    "gold",
+    "rhodium",
+    "beads",
+    "stone",
+    "enamel",
+    "mehendi",
 ]
 
 BEST_SELLING_TERMS = [
@@ -169,15 +184,24 @@ def parse_query(query):
     if rating_match:
         result["min_rating"] = float(rating_match.group(1) or rating_match.group(2))
 
-    budget = re.search(r"(?:under|below|budget|price|rs\.?|₹)\s*(\d+)|(\d+)\s*(?:rs|₹|rupees)?", query)
+    budget = re.search(r"(?:under|below|budget|price|rs\.?|₹|rupees)\s*(\d+)|(\d+)\s*(?:rs|₹|rupees)", query)
 
     if budget and not rating_match:
         result["budget"] = int(budget.group(1) or budget.group(2))
 
-    for cat in CATEGORIES:
-        if re.search(r"\b" + re.escape(cat) + r"\b", query):
-            result["category"] = cat.rstrip("s") if cat.endswith("s") else cat
-            break
+    # Combo / set packs ("combo", "pack of 4", "set of 2") take priority over a
+    # single-piece category so we don't mislabel a 4-pair earring pack as just
+    # "earring" (and a stray "4" never becomes a budget).
+    combo_aliases = CATEGORY_ALIASES["combo"]
+    if any(re.search(r"\b" + re.escape(a) + r"\b", query) for a in combo_aliases):
+        result["category"] = "combo"
+    else:
+        for canonical, aliases in CATEGORY_ALIASES.items():
+            if canonical == "combo":
+                continue
+            if any(re.search(r"\b" + re.escape(a) + r"\b", query) for a in aliases):
+                result["category"] = canonical
+                break
 
     for mat in MATERIALS:
         if re.search(r"\b" + re.escape(mat) + r"\b", query):

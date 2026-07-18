@@ -105,14 +105,25 @@ Product link: {product.get('permalink', '')}
 
     history_block = _format_history(history)
 
+    # Tell the model exactly which product type the shopper wants so it cannot
+    # drift to a different category (e.g. earrings -> necklace).
+    focus_bits = []
+    if query.get("category"):
+        focus_bits.append(f"PRODUCT TYPE REQUESTED: {query['category']}")
+    if query.get("material"):
+        focus_bits.append(f"MATERIAL REQUESTED: {query['material']}")
+    if query.get("budget"):
+        focus_bits.append(f"BUDGET: under Rs.{query['budget']}")
+    focus_text = "\n".join(focus_bits) if focus_bits else "(no specific filter)"
+
     prompt =  f"""
 You are the AI shopping assistant for our jewellery store. You are knowledgeable,
 warm, and help customers find the perfect piece.
 
 IMPORTANT RULES:
 
-- Only recommend products listed below.
-- Do NOT create, guess, or invent products.
+- ONLY recommend products from the list below. There are exactly {len(products)} products listed.
+- Do NOT create, guess, invent, rename, or add any product that is not in the list. Use each product's exact Name as written.
 - If a product is not listed, never mention it.
 - Mention only the product name, price, stock, and rating exactly as provided.
 - When you recommend a product, include its Product link so the customer can open it.
@@ -120,8 +131,11 @@ IMPORTANT RULES:
 - Do not use markdown bold formatting.
 - If there are no matching products, say:
   "Sorry, I couldn't find a matching product."
-- Only discuss the product type the customer asked for (e.g. if they said earrings, do not switch to necklaces or rings).
+- ONLY discuss the product type the customer asked for (e.g. if they asked for earrings, do NOT switch to necklaces or rings).
 - {sort_instruction}
+
+SHOPPER'S REQUEST (stick strictly to this):
+{focus_text}
 
 MATERIAL / BRAND FACTS (critical — never violate):
 - Zyraluxe sells ONLY imitation / fashion / costume jewellery. We do NOT sell solid gold, 14k/18k/22k gold, real silver, or certified diamonds.
@@ -158,7 +172,7 @@ Customer Question:
                 "content": prompt
             }
         ],
-        "temperature": 0.4,
+        "temperature": 0.3,
         "max_tokens": 350
     }
 
@@ -191,7 +205,7 @@ def ask_conversation(user_message, intent="general", filters=None, history=None)
     # Build a short summary of what we already know about the shopper
     known = []
     if filters.get("category"):
-        known.append(f"category: {filters['category']}")
+        known.append(f"category: {filters['category']} (ONLY talk about this product type)")
     if filters.get("material"):
         known.append(f"material: {filters['material']}")
     if filters.get("keyword"):
@@ -257,7 +271,7 @@ What we already know about the shopper: {known_text}
                 "content": prompt,
             }
         ],
-        "temperature": 0.7,
+        "temperature": 0.5,
         "max_tokens": 120,
     }
 

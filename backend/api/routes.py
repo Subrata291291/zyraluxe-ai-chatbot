@@ -247,23 +247,16 @@ def run_more_products(message, query, limit, seen_ids, history=None):
     if len(strict) >= limit:
         chosen = strict[:limit]
     else:
-        # 2) Need more — relax filters step by step to find related items.
+        # 2) Need more — relax ONLY budget + rating, never the category or
+        # material, so "more" always stays in the same product type (no
+        # necklaces sneaking in when the shopper asked for earrings).
         needed = limit - len(strict)
         relaxed_pool = [p for p in products if p.get("id") not in seen
                         and p.get("id") not in {p2.get("id") for p2 in strict}]
 
-        # Drop budget + rating first (keep category/material context).
         r1 = _relax(query, drop=["budget", "min_rating"])
         extra = [p for p in filter_products(relaxed_pool, r1) if p.get("id") not in seen]
         extra = rank_products(extra, r1, limit=needed)
-
-        if len(extra) < needed:
-            # Still short — also drop material (same category, any material).
-            r2 = _relax(query, drop=["budget", "min_rating", "material"])
-            more = [p for p in filter_products(relaxed_pool, r2) if p.get("id") not in seen
-                    and p.get("id") not in {p3.get("id") for p3 in extra}]
-            extra += rank_products(more, r2, limit=needed - len(extra))
-
         chosen = strict + extra[:needed]
 
     answer = ask_ai(message, chosen, query, history)
