@@ -35,12 +35,10 @@ app.include_router(router)
 
 @app.on_event("startup")
 def _refresh_catalog():
-    # Warm up the product catalogue cache and refresh the knowledge base on boot.
-    try:
-        from services.catalog_sync import sync_catalog
-        sync_catalog()
-    except Exception:
-        pass
+    # Warm up the product catalogue cache on boot. This must NEVER block or
+    # crash server startup — on the free tier a slow WooCommerce call must not
+    # take the whole service down. Failures are silently ignored; the cache
+    # simply refreshes lazily on the first real request.
     try:
         from services.woocommerce import refresh_catalog_cache
         refresh_catalog_cache()
