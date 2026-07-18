@@ -129,6 +129,12 @@ def should_collect_filters(query):
     if query.get("sort"):
         return False
 
+    # If the shopper already named a concrete product type (category/material),
+    # search directly — don't force an extra rating question. Only collect
+    # filters when the request is vague (no product focus at all).
+    if query.get("category") or query.get("material"):
+        return False
+
     return has_product_focus and (query.get("budget") is None or query.get("min_rating") is None)
 
 
