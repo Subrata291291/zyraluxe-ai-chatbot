@@ -376,25 +376,18 @@ async function sendMessage(customText=null){
 
             // "Show more" button — re-sends the previous search with a larger
             // limit. chatContext already carries last_query/last_limit.
+            // Uses a class (not a fixed id) so it survives innerHTML re-renders.
             if(data.context && data.context.last_query){
  
                 messages.innerHTML += `
  
-                <button type="button" class="show-more-btn" id="showMoreBtn">
+                <button type="button" class="show-more-btn">
  
                     Show more products
  
                 </button>
  
                 `;
- 
-                const moreBtn = document.getElementById("showMoreBtn");
- 
-                if(moreBtn){
- 
-                    moreBtn.addEventListener("click", ()=> sendMessage("more"));
- 
-                }
  
             }
  
@@ -478,24 +471,45 @@ sendMessage();
 // ================================
 
 suggestions.forEach(btn=>{
-
+ 
 btn.addEventListener(
-
+ 
 "click",
-
+ 
 ()=>{
-
+ 
 sendMessage(
-
+ 
 btn.innerText
-
+ 
 );
-
+ 
 }
-
+ 
 );
 
 });
+
+// ================================
+// Show more (event delegation)
+// ================================
+// Delegated handler so the button keeps working even though messages are
+// re-rendered with innerHTML += on every reply.
+messages.addEventListener(
+ 
+"click",
+ 
+e=>{
+ 
+if(e.target && e.target.classList.contains("show-more-btn")){
+ 
+sendMessage("more");
+ 
+}
+ 
+}
+ 
+);
 
 
 
