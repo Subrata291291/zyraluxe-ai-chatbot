@@ -378,7 +378,7 @@ def chat(request: ChatRequest):
             total_products=0,
             query=query,
             products=[],
-            context={}
+            context={"answered": "kb"}
         )
         resp.context = _update_context(context, resp, request.message, resp.reply)
         return resp

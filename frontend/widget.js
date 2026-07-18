@@ -375,7 +375,7 @@ async function sendMessage(customText=null){
             });
  
         }
-        else if(data.query && data.query.intent === "shopping" && !(data.context && data.context.mode)){
+        else if(data.query && data.query.intent === "shopping" && !(data.context && data.context.mode) && !(data.context && data.context.answered === "kb")){
 
             messages.innerHTML += `
 
