@@ -207,3 +207,67 @@ def parse_query(query):
     return result
 
 
+# Phrases that mean "continue / refine the previous search" rather than start
+# a brand-new one. Used to decide whether to merge with the previous query.
+_REFINE_TERMS = [
+    "cheaper", "less expensive", "lower price", "more affordable", "budget",
+    "expensive", "pricier", "higher", "costlier",
+    "in silver", "in gold", "silver", "gold", "rose gold", "oxidized",
+    "under", "below", "above", "over", "within",
+    "more", "another", "others", "other", "different", "similar",
+    "show me", "show", "see", "those", "these", "that", "them",
+    "rating", "rated", "star", "stars",
+]
+
+
+def merge_with_history(query, prev_query, message=""):
+    """
+    Carry over context from the previous turn so the conversation feels
+    continuous. If the new message is a short follow-up that doesn't restate
+    the product type, we inherit the previous category/material/budget/rating
+    instead of dropping them.
+
+    `query` is the freshly parsed current message; `prev_query` is the last
+    executed search (or None). Returns the merged query dict.
+    """
+    if not prev_query:
+        return query
+
+    merged = dict(query)
+
+    # A follow-up is a short message that doesn't restate a concrete product
+    # (no category, no material, no sort) but contains refine language.
+    text = (message or "").strip().lower()
+    has_concrete_focus = any([
+        merged.get("category"),
+        merged.get("material"),
+        merged.get("sort"),
+    ])
+    looks_like_followup = (
+        (
+            not has_concrete_focus
+            and (len(text.split()) <= 6)
+            and any(term in text for term in _REFINE_TERMS)
+        )
+        or merged.get("more")
+        or (not has_concrete_focus and prev_query and len(text.split()) <= 3)
+    )
+
+    if looks_like_followup:
+        # Inherit what the user didn't re-specify this turn.
+        for key in ("category", "material", "budget", "min_rating", "sort"):
+            if merged.get(key) in (None, ""):
+                merged[key] = prev_query.get(key)
+
+        # The current message is refine language, not a product name, so don't
+        # carry a stale keyword that would wrongly filter the results.
+        if merged.get("keyword"):
+            merged["keyword"] = None
+
+        # Keep shopping intent so follow-ups search instead of small-talking.
+        if prev_query.get("intent") == "shopping":
+            merged["intent"] = "shopping"
+
+    return merged
+
+

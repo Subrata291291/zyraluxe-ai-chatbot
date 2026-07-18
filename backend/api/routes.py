@@ -6,7 +6,7 @@ from html.parser import HTMLParser
 
 from services.ranking import rank_products
 from models.schemas import ChatRequest, ChatResponse, Product
-from utils.query_parser import parse_query
+from utils.query_parser import parse_query, merge_with_history
 from utils.filters import filter_products
 from services.woocommerce import get_all_products
 from ai import ask_ai, ask_conversation
@@ -95,10 +95,10 @@ class DescriptionTextParser(HTMLParser):
             self.parts.append(data)
 
 
-def conversation_reply(message, query):
+def conversation_reply(message, query, history=None):
 
     intent = query.get("intent")
-    return ask_conversation(message, intent or "general", query)
+    return ask_conversation(message, intent or "general", query, history)
 
 
 def clean_description(description):
@@ -201,7 +201,7 @@ def product_cards_from_products(products):
     return product_cards
 
 
-def run_product_search(message, query, limit=3):
+def run_product_search(message, query, limit=3, history=None):
 
     products = get_all_products()
     matched_products = filter_products(products, query)
@@ -210,7 +210,7 @@ def run_product_search(message, query, limit=3):
         query,
         limit=limit
     )
-    answer = ask_ai(message, matched_products, query)
+    answer = ask_ai(message, matched_products, query, history)
     product_cards = product_cards_from_products(matched_products)
 
     context = {"last_query": query, "last_limit": limit}
@@ -227,15 +227,21 @@ def run_product_search(message, query, limit=3):
 @router.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
 
-    query = parse_query(request.message)
     context = request.context or {}
+    history = context.get("history") or []
 
-    # "Show more" — the client echoes back the previous search query, so we
-    # re-run it with a larger limit instead of starting a new conversation.
-    if query.get("more") and context.get("last_query"):
-        prev_query = context["last_query"]
+    # Parse the new message, then merge with the previous search so follow-ups
+    # ("cheaper ones", "any in silver?", "more") keep the earlier context.
+    raw_query = parse_query(request.message)
+    prev_query = context.get("last_query")
+    query = merge_with_history(raw_query, prev_query, request.message)
+
+    # "More" — re-run the previous search with a larger limit.
+    if query.get("more") and prev_query:
         prev_limit = int(context.get("last_limit", 3) or 3)
-        return run_product_search(request.message, prev_query, limit=prev_limit + 3)
+        result = run_product_search(request.message, prev_query, limit=prev_limit + 3, history=history)
+        result.context = _update_context(context, result, request.message, result.reply)
+        return result
 
     if context.get("mode") == "collect_filters":
         filters = context.get("filters", {})
@@ -247,11 +253,13 @@ def chat(request: ChatRequest):
             elif answer_query.get("budget") is not None:
                 filters["budget"] = answer_query["budget"]
             else:
-                return build_context_response(
-                    ask_conversation(request.message, "filter_budget", filters),
+                resp = build_context_response(
+                    ask_conversation(request.message, "filter_budget", filters, history),
                     filters,
                     context
                 )
+                resp.context = _update_context(context, resp, request.message, resp.reply)
+                return resp
 
         if context.get("step") == "rating":
             if wants_no_preference(request.message):
@@ -259,11 +267,13 @@ def chat(request: ChatRequest):
             elif answer_query.get("min_rating") is not None:
                 filters["min_rating"] = answer_query["min_rating"]
             else:
-                return build_context_response(
-                    ask_conversation(request.message, "filter_rating", filters),
+                resp = build_context_response(
+                    ask_conversation(request.message, "filter_rating", filters, history),
                     filters,
                     context
                 )
+                resp.context = _update_context(context, resp, request.message, resp.reply)
+                return resp
 
         question = next_filter_question(filters)
 
@@ -283,27 +293,33 @@ def chat(request: ChatRequest):
         filters.pop("skip_budget", None)
         filters.pop("skip_rating", None)
 
-        return run_product_search(request.message, filters)
+        result = run_product_search(request.message, filters, history=history)
+        result.context = _update_context(context, result, request.message, result.reply)
+        return result
 
     if query.get("intent") != "shopping":
-        return ChatResponse(
-            reply=conversation_reply(request.message, query),
+        resp = ChatResponse(
+            reply=conversation_reply(request.message, query, history),
             total_products=0,
             query=query,
             products=[],
             context={}
         )
+        resp.context = _update_context(context, resp, request.message, resp.reply)
+        return resp
 
     # Knowledge-base first: policy/FAQ questions get grounded answers from
     # the knowledge base instead of being run as a product search.
     if is_knowledge_query(request.message, query):
-        return ChatResponse(
-            reply=conversation_reply(request.message, query),
+        resp = ChatResponse(
+            reply=conversation_reply(request.message, query, history),
             total_products=0,
             query=query,
             products=[],
             context={}
         )
+        resp.context = _update_context(context, resp, request.message, resp.reply)
+        return resp
 
     if should_collect_filters(query):
         question = next_filter_question(query)
@@ -319,4 +335,26 @@ def chat(request: ChatRequest):
             }
         )
 
-    return run_product_search(request.message, query)
+    result = run_product_search(request.message, query, history=history)
+    result.context = _update_context(context, result, request.message, result.reply)
+    return result
+
+
+def _update_context(context, response, user_message, assistant_reply):
+    """
+    Attach rolling conversation memory (history + last search) to the response
+    context so the next turn can continue naturally.
+    """
+    history = list(context.get("history") or [])
+    history.append({"role": "user", "content": user_message})
+    history.append({"role": "assistant", "content": assistant_reply})
+    # Keep the last ~10 turns to bound payload size.
+    history = history[-10:]
+
+    new_context = dict(response.context or {})
+    new_context["history"] = history
+    if response.products:
+        # Remember the search so follow-ups can refine it.
+        new_context["last_query"] = response.query
+        new_context["last_limit"] = int(new_context.get("last_limit", 3) or 3)
+    return new_context

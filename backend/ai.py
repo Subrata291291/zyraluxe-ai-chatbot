@@ -46,12 +46,24 @@ def _post(payload, timeout):
     raise last_err
 
 
-def ask_ai(user_question, products, query=None):
+def _format_history(history):
+    """Render recent turns as readable text for the model prompt."""
+    if not history:
+        return ""
+    lines = []
+    for turn in history[-6:]:
+        role = "Customer" if turn.get("role") == "user" else "Assistant"
+        lines.append(f"{role}: {turn.get('content', '')}")
+    return "\n".join(lines)
+
+
+def ask_ai(user_question, products, query=None, history=None):
     """
     Generate an AI response using matching WooCommerce products.
     """
 
     query = query or {}
+    history = history or []
 
     # If no products found
     if not products:
@@ -91,6 +103,8 @@ Product link: {product.get('permalink', '')}
     if query.get("sort") == "top_rated":
         sort_instruction = "The products are already sorted by rating. Recommend them in this exact order."
 
+    history_block = _format_history(history)
+
     prompt =  f"""
 You are the AI shopping assistant for our jewellery store. You are knowledgeable,
 warm, and help customers find the perfect piece.
@@ -107,6 +121,9 @@ IMPORTANT RULES:
 - If there are no matching products, say:
   "Sorry, I couldn't find a matching product."
 - {sort_instruction}
+
+RECENT CONVERSATION (for context only — reply to the latest Customer question):
+{history_block}
 
 Products:
 
@@ -149,7 +166,7 @@ Customer Question:
         return "Unexpected response received from OpenRouter."
 
 
-def ask_conversation(user_message, intent="general", filters=None):
+def ask_conversation(user_message, intent="general", filters=None, history=None):
     """
     Generate a free-form, natural reply for non-product turns
     (greetings, thanks, small talk, policy/FAQ questions, and
@@ -159,6 +176,7 @@ def ask_conversation(user_message, intent="general", filters=None):
     """
 
     filters = filters or {}
+    history = history or []
 
     # Pull relevant knowledge-base snippets (Level 1 RAG)
     kb_context = get_knowledge_context(user_message)
@@ -187,6 +205,9 @@ Your job is to keep the conversation natural, warm, and on-brand.
  Shopper message: "{user_message}"
 Detected intent: {intent}
 What we already know about the shopper: {known_text}
+
+ RECENT CONVERSATION (context only):
+{_format_history(history)}
 
  Rules:
 - Reply like a real human sales assistant, 1-2 short sentences.
