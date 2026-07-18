@@ -367,13 +367,37 @@ async function sendMessage(customText=null){
             `;
 
             data.products.forEach(product=>{
-
+ 
                 messages.innerHTML +=
-
+ 
                 productCard(product);
-
+ 
             });
 
+            // "Show more" button — re-sends the previous search with a larger
+            // limit. chatContext already carries last_query/last_limit.
+            if(data.context && data.context.last_query){
+ 
+                messages.innerHTML += `
+ 
+                <button type="button" class="show-more-btn" id="showMoreBtn">
+ 
+                    Show more products
+ 
+                </button>
+ 
+                `;
+ 
+                const moreBtn = document.getElementById("showMoreBtn");
+ 
+                if(moreBtn){
+ 
+                    moreBtn.addEventListener("click", ()=> sendMessage("more"));
+ 
+                }
+ 
+            }
+ 
         }
         else if(data.query && data.query.intent === "shopping" && !(data.context && data.context.mode)){
 

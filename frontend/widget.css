@@ -601,3 +601,22 @@
     }
 }
 
+.show-more-btn{
+    display:block;
+    width:100%;
+    margin:10px 0 4px;
+    padding:10px 14px;
+    border:1px solid var(--zl-gold, #d8ad2f);
+    border-radius:12px;
+    background:transparent;
+    color:var(--zl-gold, #d8ad2f);
+    font:600 13px/1.2 inherit;
+    cursor:pointer;
+    transition:background .15s ease,color .15s ease;
+}
+
+.show-more-btn:hover{
+    background:var(--zl-gold, #d8ad2f);
+    color:#1b1b1b;
+}
+

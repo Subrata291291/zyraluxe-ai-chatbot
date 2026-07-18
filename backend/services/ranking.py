@@ -72,7 +72,7 @@ def score_product(product, query):
     return score
 
 
-def rank_products(products, query):
+def rank_products(products, query, limit=3):
 
     sort_mode = query.get("sort")
 
@@ -83,7 +83,7 @@ def rank_products(products, query):
             reverse=True
         )
 
-        return ranked[:3]
+        return ranked[:limit]
 
     if sort_mode == "top_rated":
         ranked = sorted(
@@ -92,7 +92,7 @@ def rank_products(products, query):
             reverse=True
         )
 
-        return ranked[:3]
+        return ranked[:limit]
 
     ranked = sorted(
 
@@ -104,4 +104,4 @@ def rank_products(products, query):
 
     )
 
-    return ranked[:3]
+    return ranked[:limit]

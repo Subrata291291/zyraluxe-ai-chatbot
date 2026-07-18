@@ -201,23 +201,26 @@ def product_cards_from_products(products):
     return product_cards
 
 
-def run_product_search(message, query):
+def run_product_search(message, query, limit=3):
 
     products = get_all_products()
     matched_products = filter_products(products, query)
     matched_products = rank_products(
         matched_products,
-        query
+        query,
+        limit=limit
     )
     answer = ask_ai(message, matched_products, query)
     product_cards = product_cards_from_products(matched_products)
+
+    context = {"last_query": query, "last_limit": limit}
 
     return ChatResponse(
         reply=answer,
         total_products=len(product_cards),
         query=query,
         products=product_cards,
-        context={}
+        context=context
     )
 
 
@@ -226,6 +229,13 @@ def chat(request: ChatRequest):
 
     query = parse_query(request.message)
     context = request.context or {}
+
+    # "Show more" — the client echoes back the previous search query, so we
+    # re-run it with a larger limit instead of starting a new conversation.
+    if query.get("more") and context.get("last_query"):
+        prev_query = context["last_query"]
+        prev_limit = int(context.get("last_limit", 3) or 3)
+        return run_product_search(request.message, prev_query, limit=prev_limit + 3)
 
     if context.get("mode") == "collect_filters":
         filters = context.get("filters", {})

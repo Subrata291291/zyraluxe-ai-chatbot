@@ -73,6 +73,26 @@ CASUAL_STARTS = (
     "tell me about yourself"
 )
 
+MORE_TERMS = [
+    "more",
+    "more products",
+    "show more",
+    "see more",
+    "load more",
+    "another",
+    "others",
+    "other products",
+    "more items",
+    "more options",
+    "next",
+    "next page",
+    "additional",
+    "anything else",
+    "what else",
+    "more results",
+    "view more"
+]
+
 SHOPPING_TERMS = [
     "show",
     "find",
@@ -112,7 +132,8 @@ def parse_query(query):
         "sort": None,
         "intent": "shopping",
         "keyword": None,
-        "min_rating": None
+        "min_rating": None,
+        "more": False
     }
 
     if query in GREETING_TERMS:
@@ -125,6 +146,13 @@ def parse_query(query):
 
     if any(query.startswith(start) for start in CASUAL_STARTS):
         result["intent"] = "conversation"
+        return result
+
+    # "show more" / "more products" — only meaningful when the client echoes
+    # back the previous search query via context (handled in routes.py).
+    if any(term in query for term in MORE_TERMS) and len(query.split()) <= 4:
+        result["more"] = True
+        result["intent"] = "shopping"
         return result
 
     if any(term in query for term in BEST_SELLING_TERMS):
