@@ -224,6 +224,64 @@ def run_product_search(message, query, limit=3, history=None):
     )
 
 
+def run_more_products(message, query, limit, seen_ids, history=None):
+    """
+    "Show more" handler. Returns up to `limit` products for the previous
+    search, skipping ones already shown. If the strict filter is exhausted,
+    progressively relaxes constraints (budget -> rating -> material) to keep
+    surfacing *related* products in the same category instead of repeating.
+    """
+    products = get_all_products()
+    seen = set(seen_ids or [])
+
+    # 1) Strict matches not yet shown.
+    strict = [p for p in filter_products(products, query) if p.get("id") not in seen]
+    strict = rank_products(strict, query, limit=limit)
+
+    if len(strict) >= limit:
+        chosen = strict[:limit]
+    else:
+        # 2) Need more — relax filters step by step to find related items.
+        needed = limit - len(strict)
+        relaxed_pool = [p for p in products if p.get("id") not in seen
+                        and p.get("id") not in {p2.get("id") for p2 in strict}]
+
+        # Drop budget + rating first (keep category/material context).
+        r1 = _relax(query, drop=["budget", "min_rating"])
+        extra = [p for p in filter_products(relaxed_pool, r1) if p.get("id") not in seen]
+        extra = rank_products(extra, r1, limit=needed)
+
+        if len(extra) < needed:
+            # Still short — also drop material (same category, any material).
+            r2 = _relax(query, drop=["budget", "min_rating", "material"])
+            more = [p for p in filter_products(relaxed_pool, r2) if p.get("id") not in seen
+                    and p.get("id") not in {p3.get("id") for p3 in extra}]
+            extra += rank_products(more, r2, limit=needed - len(extra))
+
+        chosen = strict + extra[:needed]
+
+    answer = ask_ai(message, chosen, query, history)
+    product_cards = product_cards_from_products(chosen)
+
+    context = {"last_query": query, "last_limit": limit}
+
+    return ChatResponse(
+        reply=answer,
+        total_products=len(product_cards),
+        query=query,
+        products=product_cards,
+        context=context
+    )
+
+
+def _relax(query, drop):
+    """Return a copy of the query with the given keys cleared."""
+    relaxed = dict(query)
+    for key in drop:
+        relaxed[key] = None
+    return relaxed
+
+
 @router.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
 
@@ -236,10 +294,14 @@ def chat(request: ChatRequest):
     prev_query = context.get("last_query")
     query = merge_with_history(raw_query, prev_query, request.message)
 
-    # "More" — re-run the previous search with a larger limit.
+    # "More" — surface additional related products, skipping ones already shown.
     if query.get("more") and prev_query:
         prev_limit = int(context.get("last_limit", 3) or 3)
-        result = run_product_search(request.message, prev_query, limit=prev_limit + 3, history=history)
+        seen_ids = context.get("seen_ids") or []
+        result = run_more_products(
+            request.message, prev_query, limit=prev_limit + 3,
+            seen_ids=seen_ids, history=history
+        )
         result.context = _update_context(context, result, request.message, result.reply)
         return result
 
@@ -357,4 +419,13 @@ def _update_context(context, response, user_message, assistant_reply):
         # Remember the search so follow-ups can refine it.
         new_context["last_query"] = response.query
         new_context["last_limit"] = int(new_context.get("last_limit", 3) or 3)
+        # Track shown product ids so "more" never repeats them.
+        shown = list(context.get("seen_ids") or [])
+        shown += [p.id for p in response.products]
+        # De-duplicate while preserving order.
+        seen_unique = []
+        for pid in shown:
+            if pid not in seen_unique:
+                seen_unique.append(pid)
+        new_context["seen_ids"] = seen_unique
     return new_context
